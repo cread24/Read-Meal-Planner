@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plan Confirmed!</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding-top: 50px; background: #f4f7f6; }
+        .card { background: white; padding: 40px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .tick { font-size: 50px; color: #2e7d32; }
+        .btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #e65100; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="tick">✔</div>
+        <h1>Plan Confirmed!</h1>
+        <p>Your meal plan has been saved to your history.</p>
+        <p>The algorithm will now remember these recipes to ensure variety in your next suggestion.</p>
+        <a href="{{ url_for('main.index') }}" class="btn">Start New Plan</a>
+    </div>
+</body>
+</html>

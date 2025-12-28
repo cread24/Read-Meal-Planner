@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Optimized Shopping List</title>
+</head>
+<body>
+    <h1>Your Optimized Shopping List ({{ shopping_data.total_recipes }} Recipes)</h1>
+    
+    <h2>🛒 Main Shopping Items</h2>
+    <ul>
+    {% for item in shopping_data.main_shopping_list %}
+        <li>
+            {{ '%.2f' | format(item.quantity) }} {{ item.unit }} of <strong>{{ item.name }}</strong>
+        </li>
+    {% endfor %}
+    </ul>
+
+    <h2>🧂 Basics Check List (Do you have these?)</h2>
+    <ul>
+    {% for item in shopping_data.basics_check_list %}
+        <li>{{ item }}</li>
+    {% endfor %}
+    </ul>
+
+    <p><a href="{{ url_for('main.index') }}">Start a New Plan</a></p>
+</body>
+</html>

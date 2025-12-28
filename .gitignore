@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Databases
+instance/
+app.db
+*.sqlite3
+
+# Environment/Secrets
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# Other
+extracts/

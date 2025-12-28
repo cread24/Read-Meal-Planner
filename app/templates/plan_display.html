@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .recipe-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; padding: 20px; }
+    .recipe-card { 
+        border: 1px solid #eee; border-radius: 15px; padding: 0; 
+        width: 300px; background: white; box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+        overflow: hidden; display: flex; flex-direction: column;
+    }
+    .recipe-image { width: 100%; height: 200px; object-fit: cover; }
+    .card-content { padding: 15px; flex-grow: 1; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; margin-right: 5px; }
+    .badge-cal { background: #fff3e0; color: #e65100; }
+    .badge-time { background: #e8f5e9; color: #2e7d32; }
+    .badge-label { background: #f3e5f5; color: #7b1fa2; border: 1px solid #d1c4e9; font-size: 0.75em; }
+    .btn-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+    .btn { padding: 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-size: 0.9em; text-decoration: none; text-align: center; }
+    .btn-shuffle { background: #f5f5f5; color: #333; }
+    .btn-fav { background: #fff9c4; border-color: #fbc02d; font-weight: bold; }
+    .btn-dislike { background: #ffebee; border-color: #ffcdd2; color: #c62828; font-size: 0.8em; }
+    .synergy-banner { background: #e3f2fd; padding: 20px; border-radius: 12px; margin: 20px auto; max-width: 900px; border-left: 5px solid #0288d1; }
+</style>
+
+<div class="synergy-banner">
+    <h3>🌿 Waste Reduction Report</h3>
+    {% if synergy %}
+        <p>Excellent! You are reusing these fresh ingredients: 
+            <strong>{{ synergy|join(', ') }}</strong>
+        </p>
+    {% else %}
+        <p>No major fresh ingredient overlaps detected this week.</p>
+    {% endif %}
+</div>
+
+<div class="recipe-grid">
+    {% for recipe in recipes %}
+    <div class="recipe-card">
+        {% if recipe.image_url %}
+            <img src="{{ recipe.image_url }}" alt="{{ recipe.name }}" class="recipe-image">
+        {% else %}
+            <div style="height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center;">No Image</div>
+        {% endif %}
+
+        <div class="card-content">
+            <h3 style="margin: 0 0 10px 0; font-size: 1.1em; color: #2e7d32;">
+                <a href="{{ recipe.source_url }}" target="_blank" style="text-decoration: none; color: inherit;">
+                    {{ recipe.name }} 🔗
+                </a>
+            </h3>
+
+            <div style="margin-bottom: 10px;">
+                {% if recipe.calories %}
+                    <span class="badge badge-cal">🔥 {{ recipe.calories }} kcal</span>
+                {% endif %}
+                {% if recipe.time_minutes %}
+                    <span class="badge badge-time">⏱️ {{ recipe.time_minutes }} mins</span>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                {% for label in recipe.labels %}
+                    <span class="badge badge-label">{{ label.title }}</span>
+                {% endfor %}
+            </div>
+
+            <form action="{{ url_for('main.shuffle', index=loop.index0) }}" method="POST" class="btn-group">
+                <button type="submit" name="mode" value="all" class="btn btn-shuffle">🔄 Shuffle All</button>
+                <button type="submit" name="mode" value="favs" class="btn btn-fav">⭐ From Favourites</button>
+            </form>
+
+            <form action="{{ url_for('main.toggle_dislike', recipe_id=recipe.id) }}" method="POST" style="margin-top: 10px;">
+                <button type="submit" class="btn btn-dislike" style="width: 100%;">👎 Dislike & Remove</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div style="text-align: center; margin: 40px 0;">
+    <form action="{{ url_for('main.confirm_plan') }}" method="POST">
+        <button type="submit" style="background: #2e7d32; color: white; padding: 18px 50px; border: none; border-radius: 10px; font-weight: bold; font-size: 1.3em; cursor: pointer; box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);">
+            Confirm Plan & Update History
+        </button>
+    </form>
+</div>
+{% endblock %}

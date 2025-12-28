@@ -1,0 +1,15 @@
+# --- Web Framework ---
+Flask==3.0.0            # The main web server
+Flask-SQLAlchemy==3.1.1 # For managing the database (Recipes, Plans) easily
+
+# --- Utilities ---
+python-dotenv==1.0.0    # Loads configuration from your .env file
+werkzeug==3.0.1         # distinct security tools (usually comes with Flask, but good to be explicit)
+
+# --- HTTP Requests & HTML Parsing ---
+requests==2.31.0
+beautifulsoup4==4.12.3
+
+# --- Optional but Recommended ---
+ pandas                # If your "intelligence" algorithms get complex, this helps with data sorting
+ numpy                 # Useful for mathematical scoring of recipe variety

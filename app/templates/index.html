@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Recipe Planner</title>
+</head>
+<body>
+    <h1>Select Recipes for Your Plan</h1>
+    <form method="POST" action="{{ url_for('main.select_recipes') }}">
+        {% for recipe in recipes %}
+            <div>
+                <input type="checkbox" id="recipe_{{ recipe.id }}" name="recipe_ids" value="{{ recipe.id }}">
+                <label for="recipe_{{ recipe.id }}">{{ recipe.name }}</label>
+            </div>
+        {% endfor %}
+        <br>
+        <button type="submit">Generate Shopping List</button>
+    </form>
+</body>
+</html>
