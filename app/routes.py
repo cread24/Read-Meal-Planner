@@ -3,8 +3,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from .models import Recipe, db, ConfirmedPlan
 from .services.planner_service import suggest_meal_plan, generate_optimized_shopping_list, get_synergy_report, suggest_single_replacement
 from sqlalchemy import select
+from flask import request
 
 main_bp = Blueprint('main', __name__)
+
+@main_bp.before_request
+def debug_request():
+    print(f"DEBUG: Path {request.path} | Method {request.method}")
 
 @main_bp.route('/')
 def index():
@@ -14,7 +19,7 @@ def index():
 
 # app/routes.py
 
-@main_bp.route('/generate_plan', methods=['POST'])
+@main_bp.route('/generate_plan', methods=['POST', 'GET'])
 def generate_plan():
     seed_id = request.form.get('seed_id')
     if not seed_id:
@@ -82,3 +87,11 @@ def confirm_plan():
     session.pop('current_plan', None)
     
     return render_template('confirmation_success.html')
+
+@main_bp.route('/toggle_dislike/<int:recipe_id>', methods=['POST']) 
+def toggle_dislike(recipe_id):
+    recipe = db.session.get(Recipe, recipe_id)
+    if recipe:
+        recipe.is_disliked = not recipe.is_disliked
+        db.session.commit()
+    return redirect(request.referrer or url_for('main.plan_display'))
