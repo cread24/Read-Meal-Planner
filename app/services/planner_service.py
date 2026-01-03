@@ -153,17 +153,28 @@ def generate_optimized_shopping_list(recipe_ids: List[int]) -> Dict:
         key = (name, standardized_unit)
         aggregated_items[key] = aggregated_items.get(key, 0) + standardized_quantity
     
-    shopping_list_main = [
-        {"name": name, "quantity": quantity, "unit": unit}
-        for (name, unit), quantity in aggregated_items.items()
-    ]
-    
-    # 5. Return the result, including the final list of recipes chosen
+    grouped_list = {
+        'Meat': [], 'Fish': [], 'Veg': [], 'Dairy': [], 
+        'Pantry': [], 'Bread': [], 'Other': []
+    }
+
+    # Instead of a flat list, we sort them as we loop through aggregated_items
+    for (name, unit), quantity in aggregated_items.items():
+        # Fetch the ingredient to get its category
+        ing = Ingredient.query.filter_by(name=name.lower()).first()
+        cat = ing.category if (ing and ing.category) else 'Other'
+        
+        item_data = {"name": name, "quantity": quantity, "unit": unit}
+        
+        if cat in grouped_list:
+            grouped_list[cat].append(item_data)
+        else:
+            grouped_list['Other'].append(item_data)
+            
     return {
-        "main_shopping_list": shopping_list_main,
+        "grouped_shopping_list": grouped_list,
         "basics_check_list": basics_check,
-        "total_recipes": len(final_recipe_set),
-        "optimized_recipe_names": [r.name for r in final_recipe_set] # Return names for clarity
+        "total_recipes": len(recipe_ids)
     }
 
 def check_constraints(recipes: List[Recipe], constraints: Dict[str, Tuple[int, int]]) -> bool:
@@ -191,7 +202,6 @@ def check_constraints(recipes: List[Recipe], constraints: Dict[str, Tuple[int, i
             return False # Fails a constraint
 
     return True # Passes all constraints
-
 
 def find_optimized_recipe_set(all_recipes: List[Recipe]) -> List[int]:
     """
@@ -369,3 +379,74 @@ def suggest_single_replacement(current_plan_ids, exclude_ids, prefs=None, mode='
     min_score = min(scores)
     weights = [(s - min_score) + 1 for s in scores]
     return random.choices(candidates, weights=weights, k=1)[0]
+
+def suggest_single_recipe(existing_ids: List[int], category: str = 'All', prefs: dict = None) -> Recipe:
+    prefs = prefs or {}
+    recent_ids = get_recent_recipe_ids(days=14)
+    
+    # 1. Fetch current locked-in recipes
+    locked_recipes = []
+    if existing_ids:
+        locked_recipes = db.session.scalars(
+            select(Recipe).where(Recipe.id.in_(existing_ids))
+            .options(selectinload(Recipe.labels), selectinload(Recipe.ingredients))
+        ).all()
+
+    # 2. Broad Candidate Query (No hard limits on time/calories here)
+    query = select(Recipe).where(Recipe.is_disliked == False)
+    
+    if category != 'All':
+        query = query.where(Recipe.category == category)
+    
+    if existing_ids:
+        query = query.where(Recipe.id.notin_(existing_ids))
+
+    candidates = db.session.scalars(
+        query.options(selectinload(Recipe.labels), selectinload(Recipe.ingredients))
+    ).all()
+
+    if not candidates:
+        return None
+
+    # 3. Scoring Logic (This is where weighting happens)
+    scores = []
+    for c in candidates:
+        # Start with a base affinity based on synergy with other meals
+        if not locked_recipes:
+            total_score = 0.0
+        else:
+            total_score = sum(calculate_affinity_score(c, r, prefs, recent_ids) for r in locked_recipes)
+        
+        # ADDED: Self-weighting for the candidate's own stats
+        # Even if there are no locked recipes, we still want to weight by prefs
+        total_score += calculate_individual_weight(c, prefs)
+        
+        scores.append(total_score)
+
+    # 4. Pick the winner using the weighted probabilities
+    min_score = min(scores)
+    weights = [(s - min_score) + 1 for s in scores]
+    
+    return random.choices(candidates, weights=weights, k=1)[0]
+
+def calculate_individual_weight(recipe, prefs):
+    """Gives a bonus/penalty to a recipe based on its own stats vs prefs."""
+    bonus = 0.0
+    
+    # Weight by Calories
+    max_cal = prefs.get('max_calories')
+    if max_cal and recipe.calories:
+        if recipe.calories <= int(max_cal):
+            bonus += 20.0  # Significant boost for being under the limit
+        else:
+            bonus -= 20.0  # Penalty for being over, but NOT a hard exclusion
+            
+    # Weight by Time
+    max_time = prefs.get('max_time')
+    if max_time and recipe.time_minutes:
+        if recipe.time_minutes <= int(max_time):
+            bonus += 20.0
+        else:
+            bonus -= 20.0
+            
+    return bonus

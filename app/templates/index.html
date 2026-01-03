@@ -1,20 +1,145 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Recipe Planner</title>
-</head>
-<body>
-    <h1>Select Recipes for Your Plan</h1>
-    <form method="POST" action="{{ url_for('main.select_recipes') }}">
-        {% for recipe in recipes %}
-            <div>
-                <input type="checkbox" id="recipe_{{ recipe.id }}" name="recipe_ids" value="{{ recipe.id }}">
-                <label for="recipe_{{ recipe.id }}">{{ recipe.name }}</label>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-success">🍽️ Weekly Architect</h1>
+        <p class="lead">Build your week meal-by-meal. We'll find recipes that share ingredients to reduce waste.</p>
+    </div>
+
+    <div class="card shadow-sm mb-5 border-0 bg-light">
+        <div class="card-body">
+            <h5 class="card-title mb-3">⚙️ Global Constraints</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">MAX PREP TIME (MINS)</label>
+                    <input type="number" name="global_max_time" class="form-control" placeholder="e.g. 40">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">MAX CALORIES</label>
+                    <input type="number" name="global_max_cal" class="form-control" placeholder="e.g. 800">
+                </div>
             </div>
+        </div>
+    </div>
+
+    {% if synergy %}
+    <div class="alert alert-success border-success shadow-sm mb-4 animate__animated animate__fadeIn">
+        <div class="d-flex align-items-center">
+            <div class="fs-2 me-3">♻️</div>
+            <div>
+                <h5 class="alert-heading mb-1">Smart Synergy Found!</h5>
+                <p class="mb-0">You're efficiently using these ingredients across multiple meals: 
+                    <strong>{{ synergy|join(', ') }}</strong>.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% elif slots|select|list|length > 1 %}
+    <div class="alert alert-light border shadow-sm mb-4 text-center">
+        <p class="mb-0 text-muted italic">💡 Try picking a different category to see if we can find more ingredient overlaps!</p>
+    </div>
+    {% endif %}
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for i in range(6) %}
+        <div class="col">
+            <div class="card h-100 shadow-sm border-2 {% if slots[i] %}border-success{% else %}border-dashed{% endif %}">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <span class="badge bg-secondary">MEAL {{ i + 1 }}</span>
+                </div>
+                
+                <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+                    {% if slots[i] %}
+                        {% if slots[i].image_url %}
+                            <img src="{{ slots[i].image_url }}" class="img-fluid rounded mb-3" style="height: 140px; width: 100%; object-fit: cover;">
+                        {% endif %}
+                        <h6 class="fw-bold mb-1">{{ slots[i].name }}</h6>
+                        <div class="mb-3">
+                            <span class="badge rounded-pill 
+                                {{ 'bg-warning text-dark' if slots[i].category == 'Chicken' }}
+                                {{ 'bg-danger' if slots[i].category == 'Beef' }}
+                                {{ 'bg-secondary' if slots[i].category == 'Pork' }}
+                                {{ 'bg-info text-dark' if slots[i].category == 'Fish' }}
+                                {{ 'bg-success' if slots[i].category == 'Vegetarian' }}
+                                {{ 'bg-dark' if slots[i].category == 'Other' }}">
+                                {{ slots[i].category }}
+                            </span>
+                        </div>
+   
+                        <div class="d-flex gap-2 mb-2">
+                            <span class="badge bg-light text-dark border fw-normal">
+                                <i class="bi bi-clock me-1"></i>{{ slots[i].time_minutes }} mins
+                            </span>
+                            <span class="badge bg-light text-dark border fw-normal">
+                                <i class="bi bi-fire me-1"></i>{{ slots[i].calories }} kcal
+                            </span>
+                        </div>
+
+                        {% if slots[i].source_url %}
+                        <a href="{{ slots[i].source_url }}" target="_blank" class="btn btn-link btn-sm p-0 mb-3 text-decoration-none">
+                            View on Gousto <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                        {% endif %}
+
+                        <form action="{{ url_for('main.clear_slot', slot_index=i) }}" method="POST" class="w-100 mt-auto">
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">🔄 Change Meal</button>
+                        </form>
+
+                    {% else %}
+                        <p class="text-muted small mb-3">Select a category to find a matching recipe</p>
+                        <div class="d-flex flex-wrap gap-2 justify-content-center">
+                            {% for cat in ['Chicken', 'Beef', 'Pork', 'Fish', 'Vegetarian', 'All'] %}
+                            <form action="{{ url_for('main.randomise_slot', slot_index=i) }}" method="POST">
+                                <input type="hidden" name="category" value="{{ cat }}">
+                                <input type="hidden" name="max_time" class="pref-time-mirror">
+                                <input type="hidden" name="max_cal" class="pref-cal-mirror">
+                                
+                                <button type="submit" class="btn btn-sm btn-outline-primary architect-btn">
+                                    {{ cat }}
+                                </button>
+                            </form>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
         {% endfor %}
-        <br>
-        <button type="submit">Generate Shopping List</button>
-    </form>
-</body>
-</html>
+    </div>
+
+    <button type="button" 
+            class="btn btn-outline-primary btn-lg px-4 me-2" 
+            data-bs-toggle="modal" 
+            data-bs-target="#previewModal"
+            id="previewBtn">
+        <i class="bi bi-cart3 me-2"></i>Preview List
+    </button>
+
+    <div class="text-center mt-5 py-4">
+        <button type="button" 
+                id="finaliseBtn" 
+                class="btn btn-success btn-lg px-5 shadow-sm">
+            <i class="bi bi-calendar-check me-2"></i>Finalise Weekly Plan
+        </button>
+    </div>
+</div>
+
+<style>
+    .border-dashed { border-style: dashed !important; border-width: 2px; background-color: #fdfdfd; min-height: 300px; }
+    .architect-btn { min-width: 85px; }
+    .recipe-card img { transition: transform 0.3s ease; }
+    .recipe-card:hover img { transform: scale(1.02); }
+</style>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">✅ Category updated successfully!</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+{% include "_shopping_list_modal.html" %}
+{% endblock %}

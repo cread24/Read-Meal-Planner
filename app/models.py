@@ -13,8 +13,8 @@ from datetime import datetime
 recipe_label = db.Table(
     'recipe_label', 
     db.metadata, 
-    db.Column('recipe_id', db.Integer, db.ForeignKey('recipe.id'), primary_key=True),
-    db.Column('label_id', db.Integer, db.ForeignKey('label.id'), primary_key=True),
+    db.Column('recipe_id', db.Integer, db.ForeignKey('recipe.id'), primary_key=True, nullable=False),
+    db.Column('label_id', db.Integer, db.ForeignKey('label.id'), primary_key=True, nullable=False),
     extend_existing=True 
 )
 
@@ -34,6 +34,7 @@ class Recipe(db.Model):
     is_disliked = db.Column(db.Boolean, default=False)
     image_url = db.Column(db.String(500))
     source_url = db.Column(db.String(500))
+    category = db.Column(db.String(50), default="Other")
 
     # 1. UPDATED: Relationship to RecipeIngredient Model (Association Object)
     # primaryjoin ensures we correctly map the RecipeIngredient model
@@ -88,7 +89,8 @@ class Ingredient(db.Model):
     __tablename__ = 'ingredient'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    is_basic = db.Column(db.Boolean, default=False) 
+    is_basic = db.Column(db.Boolean, default=False)
+    category = db.Column(db.String(50), default='Other')
 
     # 3. UPDATED: Relationship to RecipeIngredient Model (Association Object)
     recipes = relationship(

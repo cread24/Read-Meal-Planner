@@ -20,7 +20,6 @@ def clean_label(label_text):
     return re.sub(r'\brecipes?\b', '', label_text, flags=re.IGNORECASE).strip()
 
 def scrape_and_save_recipe(recipe_path, recipe_name, servings):
-    """Processes a single recipe's deep details."""
     clean_path = recipe_path.lstrip('/')
     slug = clean_path.split('/')[-1]
     api_url = GET_RECIPE_INFO_ENDPOINT + slug
@@ -31,17 +30,23 @@ def scrape_and_save_recipe(recipe_path, recipe_name, servings):
         api_data = response.json().get('data', {}).get('entry', {})
         if not api_data: return
 
-        # --- DB UPSERT LOGIC ---
-        recipe_id = api_data.get('id')
-        recipe = db.session.get(Recipe, recipe_id)
+        # --- DB UPSERT LOGIC (Sequential ID Version) ---
+        # Instead of db.session.get(Recipe, id), we filter by name or slug
+        recipe = Recipe.query.filter_by(name=recipe_name).first()
 
         if recipe:
             # Clear old links for a clean update
             db.session.execute(RecipeIngredient.__table__.delete().where(RecipeIngredient.recipe_id == recipe.id))
             db.session.execute(recipe_label.delete().where(recipe_label.c.recipe_id == recipe.id))
+            db.session.flush()
         else:
-            recipe = Recipe(id=recipe_id, name=recipe_name)
+            # We DON'T pass an id here. The DB will assign the next number automatically.
+            recipe = Recipe(name=recipe_name)
             db.session.add(recipe)
+
+        # IMPORTANT: Flush here so the DB generates the new sequential ID 
+        # for the recipe before we try to link ingredients/labels.
+        db.session.flush()
 
         # --- DATA EXTRACTION ---
         recipe.servings = servings
@@ -58,7 +63,7 @@ def scrape_and_save_recipe(recipe_path, recipe_name, servings):
 
         # Clean Instructions
         raw_instr = api_data.get('cooking_instructions', [])
-        recipe.instructions = '\n'.join([BeautifulSoup(s.get('instruction', ''), 'html.parser').get_text(strip=True) for s in raw_instr])
+        recipe.instructions = '\n'.join([BeautifulSoup(s.get('instruction', ''), 'html.parser').get_text(separator=' ', strip=True) for s in raw_instr])
         recipe.nutritional_info = json.dumps(api_data.get('nutritional_information'))
 
         # --- SANITISED LABELS ---
@@ -95,12 +100,34 @@ def scrape_and_save_recipe(recipe_path, recipe_name, servings):
                 else: ingredient_map[key] = {'name': name, 'quantity': qty, 'unit': unit}
 
         # --- LINKING ---
+        # Ensure the recipe object has been flushed so it has an ID
+        db.session.flush() 
+
         for ing in ingredient_map.values():
-            ing_db = Ingredient.query.filter_by(name=ing['name']).first() or Ingredient(name=ing['name'])
-            db.session.add(ing_db)
+            # 1. Skip if the name is empty or just "N/A"
+            if not ing['name'] or ing['name'] == 'N/A':
+                continue
+
+            # 2. Get or Create Ingredient
+            ing_db = Ingredient.query.filter_by(name=ing['name']).first()
+            if not ing_db:
+                ing_db = Ingredient(name=ing['name'], category='Other')
+                db.session.add(ing_db)
+            
+            # 3. Flush to ensure ing_db has an ID before creating the link
             db.session.flush()
-            link = RecipeIngredient(recipe=recipe, ingredient=ing_db, quantity=ing['quantity'], unit=ing['unit'])
-            db.session.add(link)
+
+            # 4. Final Safety Check: Only link if BOTH IDs are present
+            if recipe.id and ing_db.id:
+                link = RecipeIngredient(
+                    recipe_id=recipe.id, # Use IDs directly for stability
+                    ingredient_id=ing_db.id, 
+                    quantity=ing['quantity'], 
+                    unit=ing['unit']
+                )
+                db.session.add(link)
+            else:
+                print(f"⚠️ Skipping link: Recipe ID {recipe.id} or Ing ID {ing_db.id} is NULL")
 
         db.session.commit()
 
@@ -149,8 +176,17 @@ def scrape_all_recipes():
             
     print(f"--- Finished! Total recipes: {total_scraped} ---")
 
+def run_catalogue_import():
+    #from app import create_app
+    #app = create_app()
+    #with app.app_context():
+    scrape_all_recipes()
+
+
+"""
 if __name__ == "__main__":
     from app import create_app
     app = create_app()
     with app.app_context():
         scrape_all_recipes()
+"""

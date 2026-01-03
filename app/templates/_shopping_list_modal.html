@@ -1,0 +1,65 @@
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Shopping List Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Calculating quantities...</p>
+                </div>
+                <div id="modalContent" style="display: none;">
+                    <h6>Main Ingredients</h6>
+                    <ul id="mainList" class="list-group list-group-flush mb-3"></ul>
+                    
+                    <h6>Check Cupboard For:</h6>
+                    <p id="basicsList" class="text-muted small"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="reclassifyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h6 class="modal-title" id="reclassifyTitle">Move Ingredient</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="targetIngName">
+                <label class="small text-muted mb-2">Select new aisle:</label>
+                <div class="d-grid gap-2">
+                    {% for cat in ['Meat', 'Fish', 'Veg', 'Dairy', 'Pantry', 'Bread', 'Other'] %}
+                    <button class="btn btn-outline-secondary btn-sm text-start py-2" 
+                            onclick="confirmReclassify('{{ cat }}')">
+                        {{ cat }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="finaliseConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Ready to cook?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-calendar-check text-success" style="font-size: 3rem;"></i>
+                <p class="mt-3">This will lock in your selection and generate your shopping list for the week.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pb-4">
+                <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Wait, go back</button>
+                <button type="button" class="btn btn-success px-4" id="executeFinaliseBtn">Confirm Weekly Plan</button>
+            </div>
+        </div>
+    </div>
+</div>
