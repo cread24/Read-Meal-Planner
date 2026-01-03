@@ -246,13 +246,26 @@ def find_optimized_recipe_set(all_recipes: List[Recipe]) -> List[int]:
 def get_recent_recipe_ids(days=14):
     """Retrieves a set of all recipe IDs eaten in the last fortnight."""
     cutoff = datetime.utcnow() - timedelta(days=days)
-    recent_plans = ConfirmedPlan.query.filter(ConfirmedPlan.date_confirmed >= cutoff).all()
+    
+    # Using select for SQLAlchemy 2.0 style consistency
+    query = select(ConfirmedPlan).where(ConfirmedPlan.date_confirmed >= cutoff)
+    recent_plans = db.session.scalars(query).all()
     
     recent_ids = set()
     for plan in recent_plans:
-        # Turn "1,2,3" back into {1, 2, 3}
-        ids = {int(rid) for rid in plan.recipe_ids.split(',') if rid}
-        recent_ids.update(ids)
+        if not plan.recipe_ids:
+            continue
+            
+        # Split and filter out any empty strings before converting to int
+        parts = plan.recipe_ids.split(',')
+        for rid in parts:
+            clean_rid = rid.strip()
+            if clean_rid: # This prevents the ValueError for empty strings
+                try:
+                    recent_ids.add(int(clean_rid))
+                except ValueError:
+                    continue # Skip anything that isn't a number
+                    
     return recent_ids
 
 # List of labels that don't describe a flavor profile/cuisine

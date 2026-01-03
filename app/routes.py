@@ -1,11 +1,12 @@
 # app/routes.py
-from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, flash
 from .models import Recipe, db, ConfirmedPlan, Ingredient
 from .services.planner_service import suggest_meal_plan, generate_optimized_shopping_list, get_synergy_report, suggest_single_replacement, suggest_single_recipe
 from sqlalchemy import func
 from flask import request
 import re
 from markupsafe import Markup
+from datetime import datetime
 
 main_bp = Blueprint('main', __name__)
 
@@ -27,8 +28,14 @@ def index():
     if len(current_ids) > 1:
         # Using your existing function from planner_service.py
         synergy_items = get_synergy_report(current_ids)
+
+    # Check if a plan is already being cooked
+    active_plan_exists = ConfirmedPlan.query.filter_by(status='active').first() is not None
     
-    return render_template('index.html', slots=slots, synergy=synergy_items)
+    return render_template('index.html', 
+                           slots=slots, 
+                           has_active_plan=active_plan_exists,
+                           synergy=synergy_items)
 
 @main_bp.route('/randomise_slot/<int:slot_index>', methods=['POST'])
 def randomise_slot(slot_index):
@@ -121,59 +128,47 @@ def shuffle(index):
 
 @main_bp.route('/api/finalise_plan', methods=['POST'])
 def finalise_plan():
-    current_ids = [rid for rid in session.get('current_plan', []) if rid]
-    
-    if not current_ids:
-        return jsonify({"status": "error", "message": "No recipes selected"}), 400
-    
     try:
-        # 1. Clear previous plan
-        ConfirmedPlan.query.delete()
+        current_ids = session.get('current_plan', [])
+        valid_ids = [rid for rid in current_ids if rid is not None]
         
-        # 2. Convert list [1, 2, 3] to string "1,2,3"
-        ids_string = ",".join(map(str, current_ids))
+        if not valid_ids:
+            return {"status": "error", "message": "No meals selected"}, 400
+
+        recipe_ids_str = ",".join(map(str, valid_ids))
         
-        # 3. Create the entry using the correct column name: recipe_ids
-        new_plan = ConfirmedPlan(recipe_ids=ids_string)
-        db.session.add(new_plan)
+        # Look for existing active plan
+        existing_plan = ConfirmedPlan.query.filter_by(status='active').first()
+        
+        if existing_plan:
+            existing_plan.recipe_ids = recipe_ids_str
+            existing_plan.date_confirmed = datetime.utcnow()
+        else:
+            new_plan = ConfirmedPlan(recipe_ids=recipe_ids_str, status='active')
+            db.session.add(new_plan)
         
         db.session.commit()
-        
-        # 4. Clear session
-        session.pop('current_plan', None)
-        return jsonify({"status": "success"})
+        return {"status": "success"} # Explicit JSON
         
     except Exception as e:
-        db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"Error in finalise_plan: {e}")
+        return {"status": "error", "message": str(e)}, 500
 
 @main_bp.route('/current-plan')
 def current_plan():
-    plan = ConfirmedPlan.query.first()
+    plan_record = ConfirmedPlan.query.filter_by(status='active').first()
     
-    # If no plan exists, we still need to send 'None' so the template doesn't crash
-    if not plan or not plan.recipe_ids:
+    if not plan_record:
         return render_template('current_plan.html', recipes=[], active_recipe=None)
-    
-    # Convert string "1,2,3" to list [1, 2, 3]
-    id_list = [int(rid) for rid in plan.recipe_ids.split(',') if rid]
+
+    # Convert "1,2,3" string back to objects
+    id_list = [int(rid) for rid in plan_record.recipe_ids.split(',') if rid]
     recipes = [db.session.get(Recipe, rid) for rid in id_list]
-    
-    # Handle the "?active=ID" URL parameter from the sidebar clicks
-    requested_id = request.args.get('active', type=int)
-    active_recipe = None
-    
-    if requested_id:
-        active_recipe = db.session.get(Recipe, requested_id)
-    
-    # Fallback: Default to the first recipe if none is selected
-    if not active_recipe and recipes:
-        active_recipe = recipes[0]
-    
-    # CRITICAL: 'active_recipe' must be in this return statement
-    return render_template('current_plan.html', 
-                           recipes=recipes, 
-                           active_recipe=active_recipe)
+
+    active_id = request.args.get('active', type=int)
+    active_recipe = next((r for r in recipes if r.id == active_id), recipes[0] if recipes else None)
+
+    return render_template('current_plan.html', recipes=recipes, active_recipe=active_recipe)
 
 @main_bp.route('/toggle_dislike/<int:recipe_id>', methods=['POST']) 
 def toggle_dislike(recipe_id):
@@ -219,3 +214,95 @@ def update_ingredient_category():
         return jsonify({"status": "success"})
     
     return jsonify({"status": "error", "message": f"Ingredient '{ing_name}' not found"}), 404
+
+# app/routes.py
+
+@main_bp.route('/select_recipe/<int:slot_index>/<int:recipe_id>', methods=['POST'])
+def select_recipe(slot_index, recipe_id):
+    if 'current_plan' not in session:
+        session['current_plan'] = [None] * 6
+    
+    # Verify the recipe exists
+    recipe = db.session.get(Recipe, recipe_id)
+    if recipe:
+        current_plan = session['current_plan']
+        current_plan[slot_index] = recipe.id
+        session['current_plan'] = current_plan
+        session.modified = True
+        
+    return redirect(url_for('main.index'))
+
+@main_bp.route('/api/search_recipes')
+def search_recipes():
+    query = request.args.get('q', '').strip()
+    only_favourites = request.args.get('favourites', 'false') == 'true'
+    
+    stmt = Recipe.query.filter(Recipe.is_disliked == False)
+    
+    if only_favourites:
+        stmt = stmt.filter(Recipe.is_favourite == True)
+    
+    if query:
+        stmt = stmt.filter(Recipe.name.ilike(f'%{query}%'))
+    
+    # Limit results for performance
+    recipes = stmt.limit(10).all()
+    
+    return jsonify([{
+        "id": r.id, 
+        "name": r.name, 
+        "category": r.category,
+        "time": r.time_minutes
+    } for r in recipes])
+
+@main_bp.route('/toggle_status/<int:recipe_id>/<string:status_type>', methods=['POST'])
+def toggle_status(recipe_id, status_type):
+    recipe = db.session.get(Recipe, recipe_id)
+    if not recipe:
+        return {"error": "Recipe not found"}, 404
+
+    if status_type == 'favourite':
+        recipe.is_favourite = not recipe.is_favourite
+        # Logic: If favourited, it cannot be disliked
+        if recipe.is_favourite:
+            recipe.is_disliked = False
+            
+    elif status_type == 'dislike':
+        recipe.is_disliked = not recipe.is_disliked
+        # Logic: If disliked, it cannot be a favourite
+        if recipe.is_disliked:
+            recipe.is_favourite = False
+    
+    db.session.commit()
+    return redirect(request.referrer or url_for('main.index'))
+
+@main_bp.route('/complete_plan', methods=['POST'])
+def complete_plan():
+    plan = ConfirmedPlan.query.filter_by(status='active').first()
+    if plan:
+        plan.status = 'completed' # It's now history!
+        plan.date_confirmed = datetime.utcnow()
+        db.session.commit()
+        session.pop('current_plan', None) # Clear local draft
+        flash("Plan moved to history. Recency bias applied!", "success")
+    return redirect(url_for('main.index'))
+
+@main_bp.route('/abandon_plan', methods=['POST'])
+def abandon_plan():
+    ConfirmedPlan.query.filter_by(status='active').delete()
+    db.session.commit()
+    session.pop('current_plan', None)
+    flash("Plan deleted.", "info")
+    return redirect(url_for('main.index'))
+
+@main_bp.route('/reclassify_recipe/<int:recipe_id>', methods=['POST'])
+def reclassify_recipe(recipe_id):
+    new_category = request.form.get('category')
+    recipe = db.session.get(Recipe, recipe_id)
+    
+    if recipe and new_category:
+        recipe.category = new_category
+        db.session.commit()
+        flash(f"Updated {recipe.name} to {new_category}.", "success")
+    
+    return redirect(request.referrer or url_for('main.index'))

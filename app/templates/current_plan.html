@@ -79,7 +79,11 @@
         left: 0;
         color: #2e7d32; /* Using your green theme color */
         font-weight: bold;
-    }    
+    }   
+     
+    html {
+        scroll-behavior: smooth;
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -108,10 +112,18 @@
             {% endfor %}
             
             <hr>
-            <a href="/" class="btn btn-light btn-sm w-100 mt-2">
-                <i class="bi bi-arrow-left"></i> Back to Architect
-            </a>
+            <div class="d-grid gap-2 mt-3">
+                <button type="button" class="btn btn-success w-100 shadow-sm py-2 fw-bold" data-bs-toggle="modal" data-bs-target="#completeModal">
+                    <i class="bi bi-check-circle-fill me-2"></i>Complete Plan
+                </button>
+                
+                <button type="button" class="btn btn-outline-secondary btn-sm w-100 border-0" data-bs-toggle="modal" data-bs-target="#abandonModal">
+                    <i class="bi bi-trash3 me-2"></i>Abandon Plan
+                </button>
+            </div>
         </div>
+
+
 
         <div class="col-md-8 col-lg-9 ps-md-4">
             {% if active_recipe %}
@@ -122,6 +134,22 @@
                         <span><i class="bi bi-clock me-1"></i>{{ active_recipe.time_minutes }} mins</span>
                         <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">{{ active_recipe.category }}</span>
                     </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <form action="{{ url_for('main.toggle_status', recipe_id=active_recipe.id, status_type='favourite') }}" method="POST">
+                        <button type="submit" class="btn {{ 'btn-danger' if active_recipe.is_favourite else 'btn-outline-danger' }} d-flex align-items-center">
+                            <i class="bi {{ 'bi-heart-fill' if active_recipe.is_favourite else 'bi-heart' }} me-2"></i>
+                            {{ 'Favourited' if active_recipe.is_favourite else 'Favourite' }}
+                        </button>
+                    </form>
+
+                    <form action="{{ url_for('main.toggle_status', recipe_id=active_recipe.id, status_type='dislike') }}" method="POST">
+                        <button type="submit" class="btn {{ 'btn-dark' if active_recipe.is_disliked else 'btn-outline-dark' }} d-flex align-items-center">
+                            <i class="bi {{ 'bi-hand-thumbs-down-fill' if active_recipe.is_disliked else 'bi-hand-thumbs-down' }} me-2"></i>
+                            {{ 'Disliked' if active_recipe.is_disliked else 'Disliked' }}
+                        </button>
+                    </form>
                 </div>
 
                 <ul class="nav nav-pills mb-4 bg-light p-1 rounded" id="recipeTab" role="tablist">
@@ -183,5 +211,41 @@
 </div>
 
 {% include "_shopping_list_modal.html" %}
+
+<div class="modal fade" id="completeModal" tabindex="-1" aria-labelledby="completeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-patch-check text-success display-4 mb-3"></i>
+                <h5 class="fw-bold" id="completeModalLabel">Finish Week?</h5>
+                <p class="text-muted small">This will save these meals to your history and clear your planner for next time.</p>
+                <div class="d-grid gap-2">
+                    <form action="{{ url_for('main.complete_plan') }}" method="POST">
+                        <button type="submit" class="btn btn-success w-100">Confirm & Save</button>
+                    </form>
+                    <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal">Not yet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="abandonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-exclamation-triangle text-warning display-4 mb-3"></i>
+                <h5 class="fw-bold">Abandon Plan?</h5>
+                <p class="text-muted small">This will clear your current selection. You won't be able to recover this plan.</p>
+                <div class="d-grid gap-2">
+                    <form action="{{ url_for('main.abandon_plan') }}" method="POST">
+                        <button type="submit" class="btn btn-danger w-100">Yes, Abandon</button>
+                    </form>
+                    <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal">Keep Planning</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

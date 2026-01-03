@@ -35,6 +35,7 @@ class Recipe(db.Model):
     image_url = db.Column(db.String(500))
     source_url = db.Column(db.String(500))
     category = db.Column(db.String(50), default="Other")
+    #slug = db.Column(db.String(255), unique=True, nullable=False)
 
     # 1. UPDATED: Relationship to RecipeIngredient Model (Association Object)
     # primaryjoin ensures we correctly map the RecipeIngredient model
@@ -137,3 +138,4 @@ class ConfirmedPlan(db.Model):
     date_confirmed = db.Column(db.DateTime, default=datetime.utcnow)
     # We will store IDs like "12,45,67,89,102"
     recipe_ids = db.Column(db.String(500), nullable=False)
+    status = db.Column(db.String(20), default='active')

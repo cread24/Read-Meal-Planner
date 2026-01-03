@@ -19,6 +19,20 @@
     </nav>
 
     <div class="container">
+        <div class="container mt-3">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'info' if category == 'message' else category }} alert-dismissible fade show shadow-sm border-0" role="alert">
+                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% endif %}
+                    {% if category == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+        </div>
         {% block content %}{% endblock %}
     </div>
 

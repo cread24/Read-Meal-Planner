@@ -126,4 +126,110 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
     }
+
+    // 5. Recipe Search and Favourites Selection
+
+    // A. Event Listener for the Search/Fav buttons
+    document.querySelectorAll('.search-trigger').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Convert attributes to the types we need
+            const slot = parseInt(this.getAttribute('data-slot'));
+            const favOnly = this.getAttribute('data-fav') === 'true';
+            
+            // Call the modal opener
+            openSearchModal(slot, favOnly);
+        });
+    });
+
+    // B. The Modal Logic
+    let currentTargetSlot = 0;
+    let isFavOnly = false;
+
+    window.openSearchModal = function(slotIndex, favOnly) {
+        currentTargetSlot = slotIndex;
+        isFavOnly = favOnly;
+        
+        const modalTitle = document.getElementById('modalTitle');
+        const queryInput = document.getElementById('recipeQuery');
+        const resultsContainer = document.getElementById('searchResults');
+        
+        // Update UI based on mode
+        modalTitle.innerText = favOnly ? "⭐ Your Favourites" : "🔍 Search Recipes";
+        queryInput.value = "";
+        queryInput.placeholder = favOnly ? "Search within favourites..." : "Type a recipe name...";
+        resultsContainer.innerHTML = '<p class="text-center text-muted py-4 small">Start typing to find a meal...</p>';
+        
+        const modalEl = document.getElementById('recipeSearchModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        
+        // Auto-load favourites if in fav mode
+        if (favOnly) {
+            performSearch("");
+        }
+    };
+
+    // C. The Search Function
+    function performSearch(query) {
+        const container = document.getElementById('searchResults');
+        
+        fetch(`/api/search_recipes?q=${encodeURIComponent(query)}&favourites=${isFavOnly}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.length === 0) {
+                    container.innerHTML = '<p class="text-center text-muted py-4 small">No matching recipes found.</p>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(r => `
+                    <form action="/select_recipe/${currentTargetSlot}/${r.id}" method="POST">
+                        <button type="submit" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+                            <div>
+                                <div class="fw-bold text-dark">${r.name}</div>
+                                <small class="text-muted text-uppercase" style="font-size: 0.7rem;">
+                                    ${r.category} • ${r.time} MINS
+                                </small>
+                            </div>
+                            <i class="bi bi-plus-circle text-success fs-5"></i>
+                        </button>
+                    </form>
+                `).join('');
+            })
+            .catch(err => {
+                console.error("Search error:", err);
+                container.innerHTML = '<p class="text-danger text-center py-4 small">Error connecting to server.</p>';
+            });
+    }
+
+    // D. Attach listener to the input field
+    const searchInput = document.getElementById('recipeQuery');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => performSearch(e.target.value));
+    }
+
+    // Save scroll position before the page unloads
+    window.addEventListener('beforeunload', () => {
+        localStorage.setItem('scrollPosition', window.scrollY);
+    });
+
+    // Restore scroll position when the page loads
+    window.addEventListener('load', () => {
+        const scrollPos = localStorage.getItem('scrollPosition');
+        if (scrollPos) {
+            window.scrollTo(0, parseInt(scrollPos));
+            localStorage.removeItem('scrollPosition');
+        }
+    });
+
+    window.openRecipeReclassify = function(recipeId, recipeName) {
+    const form = document.getElementById('reclassifyRecipeForm');
+    const title = document.getElementById('recTitle');
+    
+    // Set the action URL to the specific recipe ID
+    form.action = `/reclassify_recipe/${recipeId}`;
+    title.innerText = `Move ${recipeName} to:`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('recipeReclassifyModal'));
+    modal.show();
+};
 });
