@@ -89,7 +89,7 @@
                                 {{ 'bg-dark' if cat == 'Other' }}">
                                 {{ cat }}
                             </span>
-                            <i class="bi bi-pencil-square ms-1 text-muted small" style="cursor: pointer;" onclick="openRecipeReclassify('{{ slots[i].id }}', '{{ slots[i].name }}')"></i>
+                            <i class="bi bi-pencil-square ms-1 text-muted small reclassify-trigger" style="cursor: pointer;" data-recipe-id="{{ slots[i].id }}" data-recipe-name="{{ slots[i].name|e }}"></i>
                         </div>
 
                         <h6 class="fw-bold mb-1 text-truncate" title="{{ slots[i].name }}">{{ slots[i].name }}</h6>

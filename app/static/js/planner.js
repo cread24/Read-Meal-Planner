@@ -232,4 +232,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const modal = new bootstrap.Modal(document.getElementById('recipeReclassifyModal'));
     modal.show();
 };
+    
+    // Delegated listener for inline reclassify icons (reclassify-trigger)
+    document.body.addEventListener('click', function(e) {
+        const el = e.target.closest && e.target.closest('.reclassify-trigger');
+        if (!el) return;
+        const id = el.getAttribute('data-recipe-id');
+        const name = el.getAttribute('data-recipe-name');
+        if (id) {
+            window.openRecipeReclassify(id, name);
+        }
+    });
 });

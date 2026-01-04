@@ -6,15 +6,16 @@
 </head>
 <body>
     <h1>Your Optimized Shopping List ({{ shopping_data.total_recipes }} Recipes)</h1>
-    
+
     <h2>🛒 Main Shopping Items</h2>
-    <ul>
-    {% for item in shopping_data.main_shopping_list %}
-        <li>
-            {{ '%.2f' | format(item.quantity) }} {{ item.unit }} of <strong>{{ item.name }}</strong>
-        </li>
+    {% for category, items in shopping_data.grouped_shopping_list.items() %}
+        <h3>{{ category }}</h3>
+        <ul>
+        {% for item in items %}
+            <li>{{ '%.2f' | format(item.quantity) }} {{ item.unit }} of <strong>{{ item.name }}</strong></li>
+        {% endfor %}
+        </ul>
     {% endfor %}
-    </ul>
 
     <h2>🧂 Basics Check List (Do you have these?)</h2>
     <ul>
