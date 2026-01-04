@@ -1,14 +1,15 @@
 import os
 import sys
+import importlib
 
 # Ensure project root is on sys.path so `app` package can be imported
 ROOT = os.path.dirname(os.path.dirname(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from app import create_app
-
-app = create_app()
+# Import after modifying sys.path to avoid ModuleNotFoundError
+app_mod = importlib.import_module("app")
+app = app_mod.create_app()
 
 with app.test_client() as c:
     r = c.get("/")
